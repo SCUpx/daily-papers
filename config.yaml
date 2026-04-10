@@ -9,6 +9,10 @@ keywords:
   - "Large Language Models"
   - "Vision Language Models"
   - "Multimodal"
+  
+  # 生成领域
+  - "Image Generation"
+  - "Video Generation"
 
 # ArXiv API配置
 arxiv:

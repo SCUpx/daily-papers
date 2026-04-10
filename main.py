@@ -141,11 +141,12 @@ class DailyPapers:
     
     def _build_header(self, current_date: str) -> str:
         return (
-            "# Daily Papers (AI Curated)\n\n"
-            "精选高质量论文，由AI评分筛选。\n\n"
-            f"最后更新: {current_date}\n\n"
+            "# Daily Papers - AI精选论文\n\n"
+            "精选高质量论文，由 Google Gemini 评分筛选。\n\n"
+            f"**最后更新**: {current_date}\n\n"
             "[📖 查看历史论文](HISTORY.md)\n\n"
             "---\n\n"
+            "<!-- PAPERS_START -->\n\n"
         )
     
     def _build_issue_header(self, current_date: str) -> str:
