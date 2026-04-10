@@ -1,4 +1,4 @@
-# Daily Papers - AI精选论文
+# Daily Papers - 自动化每日精选 arxiv 论文
 
 **自动抓取ArXiv论文，使用 Google Gemini 评分筛选高质量内容**
 
