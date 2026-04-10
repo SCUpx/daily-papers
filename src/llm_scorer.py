@@ -102,30 +102,33 @@ class LLMScorer:
     def _get_base_url(self) -> str:
         return self.config.get("base_url", "https://generativelanguage.googleapis.com/v1beta")
     
-    def score_paper(self, title: str, abstract: str) -> Tuple[float, str, str]:
+    def score_paper(self, title: str, abstract: str, keywords: list) -> Tuple[float, str, str, list]:
         """
-        对论文进行评分和摘要
+        对论文进行评分和分类
         
         Returns:
-            (score, summary, reason): 评分(1-10)、摘要、评分理由
+            (score, summary, reason, keywords): 评分(0-100)、摘要、评分理由、匹配的关键词列表
         """
-        prompt = self._build_prompt(title, abstract)
+        prompt = self._build_prompt(title, abstract, keywords)
         
         try:
             response = self._call_api(prompt)
-            score, summary, reason = self._parse_response(response)
-            logger.info(f"Scored paper '{title[:50]}...': {score}/100")
-            return score, summary, reason
+            score, summary, reason, matched_keywords = self._parse_response(response)
+            logger.info(f"Scored paper '{title[:50]}...': {score}/100, keywords: {matched_keywords}")
+            return score, summary, reason, matched_keywords
         except Exception as e:
             logger.error(f"Failed to score paper: {e}")
-            return 0.0, "", ""
+            return 0.0, "", "", []
     
-    def _build_prompt(self, title: str, abstract: str) -> str:
-        return f"""请对这篇学术论文进行评分和总结。
+    def _build_prompt(self, title: str, abstract: str, keywords: list) -> str:
+        keywords_str = "、".join(keywords)
+        return f"""请对这篇学术论文进行评分、总结和分类。
 
 标题: {title}
 
 摘要: {abstract}
+
+可选分类: {keywords_str}
 
 请从以下角度评估（每项0-25分）：
 1. 创新性：是否提出新方法/新视角
@@ -139,7 +142,8 @@ class LLMScorer:
 {{
     "score": <0-100的整数>,
     "summary": "<一句话总结论文核心贡献，30字以内>",
-    "reason": "<评分理由，50字以内>"
+    "reason": "<评分理由，50字以内>",
+    "keywords": ["<匹配的分类，从可选分类中选择，可多选>"]
 }}"""
     
     def _call_api(self, prompt: str) -> Dict:
@@ -209,7 +213,7 @@ class LLMScorer:
         
         raise Exception("Max retries exceeded")
     
-    def _parse_response(self, response: Dict) -> Tuple[float, str, str]:
+    def _parse_response(self, response: Dict) -> Tuple[float, str, str, list]:
         """解析API响应"""
         content = ""
         try:
@@ -239,9 +243,10 @@ class LLMScorer:
             score = float(result.get("score", 0))
             summary = result.get("summary", "")
             reason = result.get("reason", "")
+            keywords = result.get("keywords", [])
             
-            return score, summary, reason
+            return score, summary, reason, keywords
         except Exception as e:
             logger.error(f"Failed to parse response: {e}")
             logger.error(f"Response content: {content[:500] if content else 'N/A'}")
-            return 0.0, "", ""
+            return 0.0, "", "", []

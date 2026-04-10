@@ -39,31 +39,17 @@ class DailyPapers:
         try:
             current_date = datetime.now(self.timezone).strftime("%Y-%m-%d")
             
-            # 1. 收集所有论文并去重
-            all_papers = []
-            paper_keywords = {}
+            # 1. 获取最新论文
+            all_papers = self.arxiv_client.fetch_papers()
+            logger.info(f"Total papers: {len(all_papers)}")
             
-            for keyword in self.config.keywords:
-                logger.info(f"Fetching papers for: {keyword}")
-                papers = self.arxiv_client.fetch_papers(keyword)
-                
-                for paper in papers:
-                    paper_id = paper.link.split("/")[-1]
-                    if paper_id not in paper_keywords:
-                        all_papers.append(paper)
-                        paper_keywords[paper_id] = [keyword]
-                    else:
-                        paper_keywords[paper_id].append(keyword)
-            
-            logger.info(f"Total unique papers: {len(all_papers)}")
-            
-            # 2. LLM评分
+            # 2. LLM评分和分类
             scored_papers = self._score_papers(all_papers)
             
             # 3. 过滤低分论文
             filtered_papers = [
                 p for p in scored_papers
-                if p.score >= self.config.llm.min_score
+                if p.score >= self.config.llm.min_score and p.keywords
             ]
             
             # 4. 按分数排序
@@ -79,20 +65,21 @@ class DailyPapers:
             )
             
             # 5. 按关键词分组输出
-            readme_content = self._build_header(current_date)
+            papers_content = ""
             daily_content = self._build_daily_header(current_date)
             
             for keyword in self.config.keywords:
                 keyword_papers = [
                     p for p in filtered_papers
-                    if keyword in paper_keywords.get(p.link.split("/")[-1], [])
+                    if keyword in p.keywords
                 ][:self.config.llm.max_papers_per_keyword]
                 
                 if keyword_papers:
-                    readme_content += self._format_papers(keyword, keyword_papers)
+                    papers_content += self._format_papers(keyword, keyword_papers)
                     daily_content += self._format_papers_detail(keyword, keyword_papers)
             
             # 写入文件
+            readme_content = self._build_readme(current_date, papers_content)
             self._write_files(readme_content, daily_content, current_date)
             
             logger.info("\n" + "=" * 50)
@@ -106,14 +93,13 @@ class DailyPapers:
             sys.exit(1)
     
     def _score_papers(self, papers):
-        """对论文进行评分"""
+        """对论文进行评分和分类"""
         logger.info(f"Scoring {len(papers)} papers...")
         
         last_request_time = 0
-        min_interval = 4.1  # 每分钟最多15次，间隔4秒，加0.1秒缓冲
+        min_interval = 4.1
         
         for i, paper in enumerate(papers, 1):
-            # 确保请求间隔
             current_time = time.time()
             elapsed = current_time - last_request_time
             if elapsed < min_interval and last_request_time > 0:
@@ -123,9 +109,10 @@ class DailyPapers:
             
             logger.info(f"[{i}/{len(papers)}] Scoring: {paper.title[:50]}...")
             
-            score, summary, reason = self.llm_scorer.score_paper(
+            score, summary, reason, keywords = self.llm_scorer.score_paper(
                 paper.title,
-                paper.abstract
+                paper.abstract,
+                self.config.keywords
             )
             
             last_request_time = time.time()
@@ -133,17 +120,34 @@ class DailyPapers:
             paper.score = score
             paper.summary = summary
             paper.reason = reason
+            paper.keywords = keywords
         
         return papers
     
-    def _build_header(self, current_date: str) -> str:
+    def _build_readme(self, current_date: str, papers_content: str) -> str:
+        marker = "<!-- PAPERS_START -->"
+        
+        try:
+            with open("README.md", "r", encoding='utf-8') as f:
+                content = f.read()
+            if marker in content:
+                return content.split(marker)[0] + marker + "\n\n" + papers_content
+        except FileNotFoundError:
+            pass
+        
         return (
             "# Daily Papers - AI精选论文\n\n"
-            "精选高质量论文，由 Google Gemini 评分筛选。\n\n"
+            "**自动抓取ArXiv论文，使用 Google Gemini 评分筛选高质量内容**\n\n"
+            "专为 **CV（计算机视觉）** 和 **LLM（大语言模型）** 研究者设计\n\n"
+            "## ✨ 特性\n\n"
+            "- **🆓 完全免费** - 使用 Google AI Studio 免费 API\n"
+            "- **🤖 自动运行** - GitHub Actions 每天自动运行\n"
+            "- **🎯 智能评分** - 四维度评估（0-100分）\n"
+            "- **💡 AI摘要** - 自动生成论文核心贡献摘要\n\n"
             f"**最后更新**: {current_date}\n\n"
             "[📖 查看历史论文](papers/)\n\n"
             "---\n\n"
-            "<!-- PAPERS_START -->\n\n"
+            f"{marker}\n\n{papers_content}"
         )
     
     def _build_daily_header(self, current_date: str) -> str:

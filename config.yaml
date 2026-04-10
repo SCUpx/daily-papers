@@ -16,7 +16,7 @@ keywords:
 
 # ArXiv API配置
 arxiv:
-  max_results: 1
+  max_results: 500
   target_categories:
     - "cs.CV"      # Computer Vision
     - "cs.CL"      # Computation and Language (NLP/LLM)
@@ -25,7 +25,7 @@ arxiv:
     - "cs.MM"      # Multimedia
 
 llm:
-  min_score: 70
+  min_score: 10
   max_papers_per_keyword: 5
   
   google:

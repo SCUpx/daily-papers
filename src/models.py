@@ -17,6 +17,7 @@ class Paper(BaseModel):
     score: float = 0.0
     summary: str = ""
     reason: str = ""
+    keywords: List[str] = []
 
 
 class Config(BaseModel):
