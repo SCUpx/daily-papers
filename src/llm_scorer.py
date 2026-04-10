@@ -32,23 +32,23 @@ class LLMScorer:
     def _get_base_url(self) -> str:
         return self.config.get("base_url", "https://generativelanguage.googleapis.com/v1beta")
     
-    def score_paper(self, title: str, abstract: str) -> Tuple[float, str]:
+    def score_paper(self, title: str, abstract: str) -> Tuple[float, str, str]:
         """
         对论文进行评分和摘要
         
         Returns:
-            (score, summary): 评分(1-10)和摘要
+            (score, summary, reason): 评分(1-10)、摘要、评分理由
         """
         prompt = self._build_prompt(title, abstract)
         
         try:
             response = self._call_llm(prompt)
-            score, summary = self._parse_response(response)
+            score, summary, reason = self._parse_response(response)
             logger.info(f"Scored paper '{title[:50]}...': {score}/10")
-            return score, summary
+            return score, summary, reason
         except Exception as e:
             logger.error(f"Failed to score paper: {e}")
-            return 0.0, ""
+            return 0.0, "", ""
     
     def _build_prompt(self, title: str, abstract: str) -> str:
         return f"""请对这篇学术论文进行评分和总结。
@@ -215,7 +215,7 @@ class LLMScorer:
         
         return default
     
-    def _parse_response(self, response: Dict) -> Tuple[float, str]:
+    def _parse_response(self, response: Dict) -> Tuple[float, str, str]:
         """解析LLM响应"""
         try:
             if self.provider == "google":
@@ -233,8 +233,9 @@ class LLMScorer:
             result = json.loads(content)
             score = float(result.get("score", 0))
             summary = result.get("summary", "")
+            reason = result.get("reason", "")
             
-            return score, summary
+            return score, summary, reason
         except Exception as e:
             logger.error(f"Failed to parse LLM response: {e}")
-            return 0.0, ""
+            return 0.0, "", ""

@@ -39,49 +39,64 @@ class DailyPapers:
         try:
             current_date = datetime.now(self.timezone).strftime("%Y-%m-%d")
             
+            # 1. 收集所有论文并去重
+            all_papers = []
+            paper_keywords = {}
+            
+            for keyword in self.config.keywords:
+                logger.info(f"Fetching papers for: {keyword}")
+                papers = self.arxiv_client.fetch_papers(keyword)
+                
+                for paper in papers:
+                    paper_id = paper.link.split("/")[-1]
+                    if paper_id not in paper_keywords:
+                        all_papers.append(paper)
+                        paper_keywords[paper_id] = [keyword]
+                    else:
+                        paper_keywords[paper_id].append(keyword)
+            
+            logger.info(f"Total unique papers: {len(all_papers)}")
+            
+            # 2. LLM评分
+            scored_papers = self._score_papers(all_papers)
+            
+            # 3. 过滤低分论文
+            filtered_papers = [
+                p for p in scored_papers
+                if p.score >= self.config.llm.min_score
+            ]
+            
+            # 4. 按分数排序
+            filtered_papers = sorted(
+                filtered_papers,
+                key=lambda p: p.score,
+                reverse=True
+            )
+            
+            logger.info(
+                f"Filtered: {len(all_papers)} → {len(filtered_papers)} papers "
+                f"(score >= {self.config.llm.min_score})"
+            )
+            
+            # 5. 按关键词分组输出
             readme_content = self._build_header(current_date)
             issue_content = self._build_issue_header(current_date)
             
             for keyword in self.config.keywords:
-                logger.info(f"\n{'=' * 50}")
-                logger.info(f"Processing: {keyword}")
-                logger.info(f"{'=' * 50}")
+                keyword_papers = [
+                    p for p in filtered_papers
+                    if keyword in paper_keywords.get(p.link.split("/")[-1], [])
+                ][:self.config.llm.max_papers_per_keyword]
                 
-                # 1. 拉取论文
-                papers = self.arxiv_client.fetch_papers(keyword)
-                
-                if not papers:
-                    logger.warning(f"No papers found for '{keyword}'")
-                    continue
-                
-                # 2. LLM评分
-                scored_papers = self._score_papers(papers)
-                
-                # 3. 过滤低分论文
-                filtered_papers = [
-                    p for p in scored_papers
-                    if p.score >= self.config.llm.min_score
-                ]
-                
-                # 4. 只保留Top N
-                filtered_papers = sorted(
-                    filtered_papers,
-                    key=lambda p: p.score,
-                    reverse=True
-                )[:self.config.llm.max_papers_per_keyword]
-                
-                logger.info(
-                    f"Filtered: {len(papers)} → {len(filtered_papers)} papers "
-                    f"(score >= {self.config.llm.min_score})"
-                )
-                
-                # 5. 生成输出
-                if filtered_papers:
-                    readme_content += self._format_papers(keyword, filtered_papers)
-                    issue_content += self._format_papers_issue(keyword, filtered_papers)
+                if keyword_papers:
+                    readme_content += self._format_papers(keyword, keyword_papers)
+                    issue_content += self._format_papers_issue(keyword, keyword_papers)
             
             # 写入文件
             self._write_files(readme_content, issue_content)
+            
+            # 追加历史记录
+            self._append_history(current_date, issue_content)
             
             logger.info("\n" + "=" * 50)
             logger.info("✅ DailyPapers completed successfully!")
@@ -100,13 +115,14 @@ class DailyPapers:
         for i, paper in enumerate(papers, 1):
             logger.info(f"[{i}/{len(papers)}] Scoring: {paper.title[:50]}...")
             
-            score, summary = self.llm_scorer.score_paper(
+            score, summary, reason = self.llm_scorer.score_paper(
                 paper.title,
                 paper.abstract
             )
             
             paper.score = score
             paper.summary = summary
+            paper.reason = reason
             
             # 避免API限流
             time.sleep(1)
@@ -118,6 +134,7 @@ class DailyPapers:
             "# Daily Papers (AI Curated)\n\n"
             "精选高质量论文，由AI评分筛选。\n\n"
             f"最后更新: {current_date}\n\n"
+            "[📖 查看历史论文](HISTORY.md)\n\n"
             "---\n\n"
         )
     
@@ -148,20 +165,38 @@ class DailyPapers:
         return "\n".join(lines) + "\n\n"
     
     def _format_papers_issue(self, keyword: str, papers) -> str:
-        """格式化论文列表（Issue）"""
-        top_papers = papers[:self.config.output.issues_results]
-        
+        """格式化论文列表（Issue）- 详细版"""
         lines = [f"## {keyword}\n"]
-        lines.append("| 标题 | 评分 |")
-        lines.append("|------|------|")
         
-        for paper in top_papers:
-            title = f"**[{paper.title[:40]}...]({paper.link})**"
-            score = f"⭐ {paper.score:.1f}"
+        for i, paper in enumerate(papers, 1):
+            title = f"**[{paper.title}]({paper.link})**"
+            score = f"⭐ {paper.score:.1f}/10"
+            date = paper.date.strftime("%Y-%m-%d")
+            authors = ", ".join(paper.authors[:3])
+            if len(paper.authors) > 3:
+                authors += " et al."
+            tags = " ".join([f"`{tag}`" for tag in paper.tags[:3]])
             
-            lines.append(f"| {title} | {score} |")
+            lines.append(f"### {i}. {title}")
+            lines.append(f"- **评分**: {score} | **日期**: {date}")
+            lines.append(f"- **作者**: {authors}")
+            lines.append(f"- **标签**: {tags}")
+            lines.append(f"- **AI摘要**: {paper.summary}")
+            
+            # 下拉展示原始摘要
+            lines.append(f"<details>")
+            lines.append(f"<summary>📄 原始摘要</summary>")
+            lines.append(f"")
+            lines.append(f"{paper.abstract[:500]}{'...' if len(paper.abstract) > 500 else ''}")
+            lines.append(f"</details>")
+            
+            # 评分理由
+            if paper.reason:
+                lines.append(f"- **评分理由**: {paper.reason}")
+            
+            lines.append("")
         
-        return "\n".join(lines) + "\n\n"
+        return "\n".join(lines) + "\n"
     
     def _write_files(self, readme: str, issue: str):
         """写入文件"""
@@ -173,6 +208,30 @@ class DailyPapers:
             f.write(issue)
         
         logger.info("✅ Files updated")
+    
+    def _append_history(self, date: str, issue_content: str):
+        """追加历史记录"""
+        history_file = Path("HISTORY.md")
+        
+        if not history_file.exists():
+            header = "# 论文历史记录\n\n本文档记录每天的精选论文。\n\n---\n\n"
+            with open(history_file, "w", encoding='utf-8') as f:
+                f.write(header)
+        
+        # 移除 frontmatter
+        content_lines = issue_content.split('\n')
+        if content_lines[0] == '---':
+            end_idx = content_lines.index('---', 1)
+            content = '\n'.join(content_lines[end_idx + 1:])
+        else:
+            content = issue_content
+        
+        with open(history_file, "a", encoding='utf-8') as f:
+            f.write(f"\n## 📅 {date}\n\n")
+            f.write(content)
+            f.write("\n---\n")
+        
+        logger.info("✅ History updated")
 
 
 def main():

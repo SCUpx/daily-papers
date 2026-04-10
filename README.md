@@ -113,20 +113,34 @@ LLM 从四个维度评分（1-10分）：
 
 ## 📬 输出示例
 
-每天会创建一个 Issue：
+**README.md** - 每天更新，显示当天精选论文
+
+**HISTORY.md** - 累增记录所有历史论文
+
+**Issue** - 每天创建一个 Issue，详细展示：
+- 论文标题和链接
+- 评分和日期
+- 作者和标签
+- AI摘要
+- 原始摘要（下拉展示）
+- 评分理由
+
+示例：
 
 ```markdown
-## Computer Vision
+### 1. [YOLOv10](link)
+- **评分**: ⭐ 8.8/10 | **日期**: 2024-01-15
+- **作者**: Author1, Author2 et al.
+- **标签**: `cs.CV` `cs.AI`
+- **AI摘要**: 提出无NMS的实时目标检测
 
-| 标题 | 评分 | AI摘要 | 日期 |
-|------|------|--------|------|
-| **[YOLOv10](link)** | ⭐ 8.8/10 | 提出无NMS的实时目标检测 | 2024-01-15 |
+<details>
+<summary>📄 原始摘要</summary>
 
-## Large Language Models
+论文原始摘要内容...
+</details>
 
-| 标题 | 评分 | AI摘要 | 日期 |
-|------|------|--------|------|
-| **[GPT-4V](link)** | ⭐ 9.5/10 | 多模态理解的突破 | 2024-01-15 |
+- **评分理由**: 创新性强，实验充分
 ```
 
 ## 🔧 自定义
@@ -167,14 +181,14 @@ daily-papers/
 │   └── daily-papers.yml    # GitHub Actions 配置
 ├── config.yaml              # 主配置文件
 ├── main.py                  # 主程序
+├── README.md                # 每日更新，展示当天论文
+├── HISTORY.md               # 历史论文累增记录
 ├── src/
 │   ├── api.py              # ArXiv API 客户端
 │   ├── llm_scorer.py       # LLM 评分器
-│   ├── model_selector.py   # 自动选择免费模型
 │   ├── models.py           # 数据模型
 │   ├── config.py           # 配置加载
 │   └── logger.py           # 日志系统
-└── tests/                  # 测试
 ```
 
 ## 🛠️ 本地开发

@@ -17,6 +17,7 @@ class Paper(BaseModel):
     # LLM评分字段
     score: float = 0.0
     summary: str = ""
+    reason: str = ""
 
 
 class Config(BaseModel):
