@@ -20,18 +20,28 @@
 3. 选择 **Daily Papers** workflow
 4. 点击 **Enable workflow**
 
-## 3. 手动测试
+## 3. 配置 Workflow 权限
+
+**重要：Fork 的仓库需要额外配置权限才能创建 Issue 和提交代码。**
+
+1. 进入仓库 **Settings**
+2. 左侧菜单选择 **Actions** → **General**
+3. 滚动到 **Workflow permissions**
+4. 选择 **Read and write permissions**
+5. 点击 **Save**
+
+## 4. 手动测试
 
 1. 进入 **Actions** → **Daily Papers**
 2. 点击 **Run workflow** → **Run workflow**
 3. 等待运行完成
 4. 查看 **Issues** 标签页，应该会创建一个新的 Issue
 
-## 4. 自动运行
+## 5. 自动运行
 
 Workflow 已配置为每天 UTC 0:00（北京时间 8:00）自动运行。
 
-## 5. 接收通知
+## 6. 接收通知
 
 ### 方式1：Watch 仓库
 点击仓库右上角的 **Watch** → **All Activity**，即可收到每次运行的邮件通知。
@@ -39,7 +49,7 @@ Workflow 已配置为每天 UTC 0:00（北京时间 8:00）自动运行。
 ### 方式2：订阅 Issues
 仓库会自动创建每日论文 Issue，GitHub 会通知所有 Watchers。
 
-## 6. 修改运行时间
+## 7. 修改运行时间
 
 编辑 `.github/workflows/daily-papers.yml` 中的 cron 表达式：
 
@@ -53,7 +63,7 @@ schedule:
 - `'0 1 * * *'` - UTC 1:00（北京时间 9:00）
 - `'0 23 * * *'` - UTC 23:00（北京时间次日 7:00）
 
-## 7. 模型选择
+## 8. 模型选择
 
 默认使用 **Gemini 2.0 Flash**，免费且快速。
 
