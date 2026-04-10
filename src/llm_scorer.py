@@ -109,8 +109,10 @@ class LLMScorer:
                 )
                 
                 if response.status_code == 429:
+                    error_detail = response.text
                     retry_after = self._parse_retry_after(response.headers.get("Retry-After"), 60)
-                    logger.warning(f"Rate limited, waiting {retry_after}s (attempt {attempt + 1}/{max_retries})")
+                    logger.warning(f"Rate limited (429): {error_detail}")
+                    logger.warning(f"Waiting {retry_after}s (attempt {attempt + 1}/{max_retries})")
                     time.sleep(retry_after)
                     continue
                 
