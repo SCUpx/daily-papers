@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -116,6 +117,11 @@ class LLMScorer:
                     time.sleep(retry_after)
                     continue
                 
+                if response.status_code == 503:
+                    logger.warning(f"Service unavailable (503), retrying in 5s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(5)
+                    continue
+                
                 if response.status_code == 400:
                     error_detail = response.text
                     logger.error(f"Bad Request (400): {error_detail}")
@@ -225,18 +231,36 @@ class LLMScorer:
     
     def _parse_response(self, response: Dict) -> Tuple[float, str, str]:
         """解析LLM响应"""
+        content = ""
         try:
             if self.provider == "google":
                 content = response["candidates"][0]["content"]["parts"][0]["text"]
             else:
                 content = response["choices"][0]["message"]["content"]
             
-            # 提取JSON
+            logger.debug(f"Raw response: {content}")
+            
+            # 提取JSON - 处理 markdown 代码块
             content = content.strip()
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
+            
+            # 方法1: 提取 ```json ... ``` 中的内容
+            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(1)
+            # 方法2: 如果以 ``` 开头，去掉代码块标记
+            elif content.startswith("```"):
+                lines = content.split('\n')
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                content = '\n'.join(lines).strip()
+            
+            # 方法3: 尝试找到第一个 { 和最后一个 } 之间的内容
+            if '{' in content and '}' in content:
+                start = content.index('{')
+                end = content.rindex('}') + 1
+                content = content[start:end]
             
             result = json.loads(content)
             score = float(result.get("score", 0))
@@ -246,4 +270,5 @@ class LLMScorer:
             return score, summary, reason
         except Exception as e:
             logger.error(f"Failed to parse LLM response: {e}")
+            logger.error(f"Response content: {content[:500] if content else 'N/A'}")
             return 0.0, "", ""
