@@ -132,7 +132,7 @@ class DailyPapers:
             with open("README.md", "r", encoding='utf-8') as f:
                 content = f.read()
             if marker in content:
-                return content.split(marker)[0] + marker + "\n\n" + papers_content
+                return content.split(marker)[0] + marker + f"\n\n## {current_date}\n\n" + papers_content
         except FileNotFoundError:
             pass
         
@@ -147,7 +147,7 @@ class DailyPapers:
             "- **💡 AI摘要** - 自动生成论文核心贡献摘要\n\n"
             f"**最后更新**: {current_date}\n\n"
             "---\n\n"
-            f"{marker}\n\n{papers_content}"
+            f"{marker}\n\n## {current_date}\n\n{papers_content}"
         )
     
     def _build_daily_header(self, current_date: str) -> str:
@@ -156,18 +156,19 @@ class DailyPapers:
     def _format_papers(self, keyword: str, papers) -> str:
         """Format paper list for README"""
         lines = [f"## {keyword}\n"]
-        lines.append("| 标题 | 评分 | 摘要 | 日期 |")
-        lines.append("|------|------|------|------|")
+        lines.append("| 标题 | 评分 | Gemini 摘要 | 原始摘要 |")
+        lines.append("|------|------|-------------|----------|")
         
         for paper in papers:
             title = f"**[{paper.title}]({paper.link})**"
             score = f"⭐ {paper.score:.0f}/100"
-            date = paper.date.strftime("%Y-%m-%d")
             
-            abstract_preview = paper.abstract[:100] + "..." if len(paper.abstract) > 100 else paper.abstract
-            summary_cell = f"{paper.summary}<br><details><summary>📄 原始摘要</summary>{abstract_preview}</details>"
+            summary = paper.summary.replace("\n", " ")
             
-            lines.append(f"| {title} | {score} | {summary_cell} | {date} |")
+            lines.append(
+                f"| {title} | {score} | {summary} | "
+                f"<details><summary>展开</summary>{paper.abstract}</details> |"
+            )
         
         return "\n".join(lines) + "\n\n"
     
