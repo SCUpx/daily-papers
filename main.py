@@ -1,10 +1,11 @@
 import html
+import re
 import sys
 import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 import pytz
 
@@ -18,6 +19,7 @@ from src.models import Config, Paper
 
 class DailyPapers:
     """Simplified paper fetching system"""
+    SEEN_IDS_FILE = "arxiv_seen_ids.tsv"
     
     def __init__(self, config_path: str = "config.yaml"):
         self.config: Config = ConfigManager(config_path).load()
@@ -47,7 +49,12 @@ class DailyPapers:
             
             # 1. Fetch latest papers
             all_papers = self.arxiv_client.fetch_papers()
-            logger.info(f"Total papers: {len(all_papers)}")
+            logger.info(f"Total papers fetched: {len(all_papers)}")
+
+            # 1.1 Deduplicate against persisted historical IDs
+            seen_ids = self._load_seen_ids(current_date)
+            all_papers = self._deduplicate_papers(all_papers, seen_ids)
+            logger.info(f"Total papers after deduplication: {len(all_papers)}")
             
             # 2. LLM scoring and categorization
             scored_papers = self._score_papers(all_papers)
@@ -73,6 +80,7 @@ class DailyPapers:
             # 5. Group output by category
             papers_content = ""
             daily_content = self._build_daily_header(current_date)
+            selected_papers: List[Paper] = []
             
             for keyword in self.config.keywords:
                 keyword_papers = [
@@ -81,12 +89,14 @@ class DailyPapers:
                 ][:self.config.llm.max_papers_per_keyword]
                 
                 if keyword_papers:
+                    selected_papers.extend(keyword_papers)
                     papers_content += self._format_papers(keyword, keyword_papers)
                     daily_content += self._format_papers_detail(keyword, keyword_papers)
             
             # Write files
             readme_content = self._build_readme(current_date, papers_content)
             self._write_files(readme_content, daily_content, current_date)
+            self._append_seen_ids(current_date, selected_papers)
             
             logger.info("\n" + "=" * 50)
             logger.info("✅ DailyPapers completed successfully!")
@@ -96,6 +106,161 @@ class DailyPapers:
             logger.error(f"❌ DailyPapers failed: {e}")
             traceback.print_exc()
             sys.exit(1)
+
+    def _load_seen_ids(self, current_date: str) -> Set[str]:
+        """Load persisted arXiv IDs from the index file."""
+        papers_dir = Path("papers")
+        papers_dir.mkdir(exist_ok=True)
+        seen_file = papers_dir / self.SEEN_IDS_FILE
+
+        if not seen_file.exists():
+            self._bootstrap_seen_ids_index(seen_file)
+
+        seen_ids: Set[str] = set()
+        try:
+            lines = seen_file.read_text(encoding="utf-8").splitlines()
+        except OSError as e:
+            logger.warning(f"Failed to read seen IDs file {seen_file}: {e}")
+            return set()
+
+        for line in lines:
+            if not line.strip():
+                continue
+            parts = line.split("\t", 1)
+            if len(parts) != 2:
+                logger.debug(f"Skipping malformed seen IDs record: {line}")
+                continue
+            record_date, arxiv_id = parts[0].strip(), parts[1].strip()
+            # Ignore today's IDs to keep same-day reruns idempotent.
+            if record_date and arxiv_id and record_date != current_date:
+                seen_ids.add(arxiv_id)
+
+        logger.info(f"Loaded {len(seen_ids)} IDs from {seen_file} for deduplication")
+        return seen_ids
+
+    def _bootstrap_seen_ids_index(self, seen_file: Path) -> None:
+        """Initialize seen IDs index from historical markdown files once."""
+        papers_dir = seen_file.parent
+        records: Set[str] = set()
+
+        for paper_file in papers_dir.glob("*.md"):
+            file_date = paper_file.stem
+            try:
+                content = paper_file.read_text(encoding="utf-8")
+            except OSError as e:
+                logger.warning(f"Failed to read historical file {paper_file}: {e}")
+                continue
+
+            paper_ids = self._extract_arxiv_ids_from_markdown(content)
+            for paper_id in paper_ids:
+                records.add(f"{file_date}\t{paper_id}")
+
+        sorted_records = sorted(records)
+        try:
+            with open(seen_file, "w", encoding="utf-8") as f:
+                for record in sorted_records:
+                    f.write(f"{record}\n")
+        except OSError as e:
+            logger.warning(f"Failed to initialize seen IDs file {seen_file}: {e}")
+            return
+
+        logger.info(
+            f"Initialized {seen_file} with {len(sorted_records)} records from history"
+        )
+
+    def _extract_arxiv_ids_from_markdown(self, content: str) -> Set[str]:
+        """Extract normalized arXiv IDs from markdown text."""
+        paper_ids: Set[str] = set()
+        for url in re.findall(r"https?://arxiv\.org/(?:abs|pdf)/[^\s\)\]<>\"']+", content):
+            normalized_id = self._normalize_arxiv_id(url)
+            if normalized_id:
+                paper_ids.add(normalized_id)
+        return paper_ids
+
+    def _append_seen_ids(self, current_date: str, papers: List[Paper]) -> None:
+        """Append today's selected paper IDs to seen IDs index."""
+        seen_file = Path("papers") / self.SEEN_IDS_FILE
+        today_ids: Set[str] = set()
+        for paper in papers:
+            paper_id = self._normalize_arxiv_id(paper.link)
+            if paper_id:
+                today_ids.add(paper_id)
+
+        if not today_ids:
+            return
+
+        existing_today: Set[str] = set()
+        if seen_file.exists():
+            try:
+                lines = seen_file.read_text(encoding="utf-8").splitlines()
+            except OSError as e:
+                logger.warning(f"Failed to read seen IDs file {seen_file}: {e}")
+                lines = []
+
+            for line in lines:
+                if not line.strip():
+                    continue
+                parts = line.split("\t", 1)
+                if len(parts) != 2:
+                    continue
+                record_date, arxiv_id = parts[0].strip(), parts[1].strip()
+                if record_date == current_date and arxiv_id:
+                    existing_today.add(arxiv_id)
+
+        new_ids = sorted(today_ids - existing_today)
+        if not new_ids:
+            return
+
+        try:
+            with open(seen_file, "a", encoding="utf-8") as f:
+                for paper_id in new_ids:
+                    f.write(f"{current_date}\t{paper_id}\n")
+        except OSError as e:
+            logger.warning(f"Failed to append seen IDs to {seen_file}: {e}")
+            return
+
+        logger.info(f"Appended {len(new_ids)} IDs to {seen_file}")
+
+    @staticmethod
+    def _normalize_arxiv_id(value: str) -> str:
+        """Normalize arXiv URL/ID to an ID without version suffix."""
+        text = (value or "").strip()
+        if not text:
+            return ""
+
+        match = re.search(r"arxiv\.org/(?:abs|pdf)/([^?#\s]+)", text)
+        if match:
+            text = match.group(1)
+
+        text = text.replace(".pdf", "").strip()
+        text = re.sub(r"^arxiv:", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"v\d+$", "", text, flags=re.IGNORECASE)
+        return text.lower()
+
+    def _paper_dedup_key(self, paper: Paper) -> str:
+        """Generate a stable deduplication key for a paper."""
+        arxiv_id = self._normalize_arxiv_id(paper.link)
+        if arxiv_id:
+            return arxiv_id
+        return f"title:{paper.title.strip().lower()}"
+
+    def _deduplicate_papers(self, papers: List[Paper], historical_ids: Set[str]) -> List[Paper]:
+        """Deduplicate fetched papers against history and within current batch."""
+        seen_ids = set(historical_ids)
+        unique_papers: List[Paper] = []
+        dropped_count = 0
+
+        for paper in papers:
+            dedup_key = self._paper_dedup_key(paper)
+            if dedup_key in seen_ids:
+                dropped_count += 1
+                continue
+            seen_ids.add(dedup_key)
+            unique_papers.append(paper)
+
+        if dropped_count > 0:
+            logger.info(f"Deduplicated {dropped_count} papers from fetched results")
+        return unique_papers
     
     def _score_papers(self, papers: List[Paper]) -> List[Paper]:
         """Score and categorize papers"""
