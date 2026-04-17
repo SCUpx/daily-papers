@@ -1,18 +1,12 @@
 # 研究领域关键词（用于LLM分类）
 keywords:
-  - "Large Language Models"
-  - "Natural Language Processing"
-  - "Vision Language Models"
-  - "Diffusion Models"
+  - "Bayesian optimization"
+  - "Mixed lubrication"
+  - "EHL"
+  - "Super Lubricating"
   - "Multimodal"
-  - "Image Generation"
+  - "Miniature Spectrometer"
   - "Video Generation"
-  - "Agent"
-  - "Distributed Computing"
-  - "Operating Systems"
-  - "Information Retrieval"
-  - "Computer Vision"
-  - "Machine Learning"
 
 # ArXiv API配置
 arxiv:
