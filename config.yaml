@@ -1,4 +1,4 @@
-# 研究领域关键词（用于LLM分类）
+# 研究领域关键词（用于LLM打分和分类）
 keywords:
   - "Bayesian optimization"
   - "Mixed lubrication"
@@ -11,15 +11,13 @@ arxiv:
   max_results: 200
   base_url: "http://export.arxiv.org/api/query"
   categories:
-    - "cs.CV"
-    - "cs.CL"
-    - "cs.AI"
-    - "cs.LG"
-    - "cs.MM"
-    - "cs.DC"
-    - "cs.OS"
-    - "cs.IR"
-    - "cs.MA"
+    - "physics.class-ph"   # 经典物理 (经典力学、流体力学、摩擦学)
+    - "physics.app-ph"     # 应用物理 (材料与机械部件物理特性)
+    - "cond-mat.mtrl-sci"  # 材料科学 (超润滑材料、磨损机制)
+    - "physics.comp-ph"    # 计算物理 (EHL数值求解器仿真)
+    - "cs.CE"              # 计算工程与科学 (有限元分析、数值工程计算)
+    - "cs.LG"              # 机器学习 (涵盖贝叶斯优化及其工程应用)
+    - "stat.ML"            # 统计机器学习 (涵盖贝叶斯优化算法基础)
 
 # LLM配置
 llm:
