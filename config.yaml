@@ -1,50 +1,21 @@
-# 研究领域关键词（用于LLM打分和分类）
+# 优化后的关键词，增加上下文减少歧义
 keywords:
-  - "Bayesian optimization"
-  - "Mixed lubrication"
-  - "EHL"
-  - "Super Lubricating"
-  - "Gear dynamic"
+  - "Bayesian optimization engineering"
+  - "Mixed lubrication EHL"
+  - "Superlubricity tribology"
+  - "Gear dynamics vibration"
+  - "Elastohydrodynamic lubrication simulation"
 
-# ArXiv API配置
 arxiv:
-  max_results: 200
-  base_url: "http://export.arxiv.org/api/query"
+  max_results: 150 # 减小单次量，提高质量
   categories:
-    - "physics.class-ph"   # 经典物理 (经典力学、流体力学、摩擦学)
-    - "physics.app-ph"     # 应用物理 (材料与机械部件物理特性)
-    - "cond-mat.mtrl-sci"  # 材料科学 (超润滑材料、磨损机制)
-    - "physics.comp-ph"    # 计算物理 (EHL数值求解器仿真)
-    - "cs.CE"              # 计算工程与科学 (有限元分析、数值工程计算)
-    - "cs.LG"              # 机器学习 (涵盖贝叶斯优化及其工程应用)
-    - "stat.ML"            # 统计机器学习 (涵盖贝叶斯优化算法基础)
+    - "physics.app-ph"  # 应用物理（核心）
+    - "cs.CE"           # 计算工程（核心）
+    - "nlin.CD"         # 非线性动力学（齿轮动力学相关）
+    - "cs.LG"           # 机器学习应用
+    - "math.NA"         # 数值分析（求解器相关）
 
-# LLM配置
 llm:
-  min_score: 70
-  max_papers_per_keyword: 5
-  rate_limit_interval: 4.1
-  
-  google:
-    api_key: "${GOOGLE_AI_API_KEY}"
-    base_url: "https://generativelanguage.googleapis.com/v1beta"
-    model: "auto"
-    fallback_model: "gemma-4-31b-it"
-    priority_models:
-      - "gemini-3.1-flash-lite-preview"
-      - "gemini-3-flash-preview"
-      - "gemini-2.5-flash-lite"
-      - "gemini-2.5-flash"
-      - "gemma-4-31b-it"
-      - "gemma-4-26b-a4b-it"
-      - "gemma-3-27b-it"
-      - "gemma-3-12b-it"
-    temperature: 0.3
-    max_output_tokens: 4096
-    timeout: 120
-    max_retries: 3
-    retry_delay_429: 100
-    retry_delay_503: 100
-    retry_delay_timeout: 5
-
-timezone: "Asia/Shanghai"
+  min_score: 75         # 略微调高门槛
+  temperature: 0.1      # 降低随机性，使评分更客观
+  # 建议在调用时，将你的“大传动比GTF非对称齿轮”等具体课题作为“Expert Context”输入
