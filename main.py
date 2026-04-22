@@ -29,7 +29,8 @@ class DailyPapers:
         self.arxiv_client = ArxivClient(
             max_results=self.config.arxiv.max_results,
             base_url=self.config.arxiv.base_url,
-            categories=self.config.arxiv.categories
+            categories=self.config.arxiv.categories,
+            search_keywords=self.config.arxiv.search_keywords,
         )
         
         self.llm_scorer = self._init_llm_scorer()

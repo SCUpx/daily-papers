@@ -31,6 +31,7 @@ class ArxivConfig(BaseModel):
     max_results: int = 500
     base_url: str = "http://export.arxiv.org/api/query"
     categories: List[str] = ["cs.CV", "cs.CL", "cs.AI", "cs.LG", "cs.MM"]
+    search_keywords: List[str] = []  # 关键词搜索（ti:/abs:），优先级高于分类过滤
 
 
 class LLMConfig(BaseModel):

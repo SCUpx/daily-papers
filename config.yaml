@@ -10,14 +10,39 @@ keywords:
 arxiv:
   max_results: 200
   base_url: "http://export.arxiv.org/api/query"
+
+  # -----------------------------------------------------------------------
+  # search_keywords: ArXiv 全文关键词搜索（同时匹配标题+摘要）
+  # 这里填入的词会直接用于 ArXiv 的 ti:/abs: 搜索，确保抓回的论文与领域相关。
+  # 与上方 keywords 的区别：
+  #   - search_keywords → 控制从 ArXiv 抓哪些论文（搜索阶段）
+  #   - keywords        → 控制 LLM 如何分类/评分（打分阶段）
+  # -----------------------------------------------------------------------
+  search_keywords:
+    - "Bayesian optimization"          # 贝叶斯优化
+    - "mixed lubrication"              # 混合润滑
+    - "elastohydrodynamic lubrication" # 弹流润滑 (EHL全称)
+    - "EHL"                            # 弹流润滑缩写
+    - "superlubricity"                 # 超滑/超润滑
+    - "superlubricating"               # 超润滑（形容词形式）
+    - "gear dynamics"                  # 齿轮动力学
+    - "gear vibration"                 # 齿轮振动（相关检索）
+    - "tribology"                      # 摩擦学（宽泛覆盖）
+    - "lubrication"                    # 润滑（宽泛覆盖）
+
+  # 保留 ArXiv 分类作为范围过滤（与 search_keywords 取交集，减少噪声）
+  # 摩擦学/机械工程的论文主要分布在以下分类
   categories:
-    - "physics.class-ph"   # 经典物理 (经典力学、流体力学、摩擦学)
-    - "physics.app-ph"     # 应用物理 (材料与机械部件物理特性)
-    - "cond-mat.mtrl-sci"  # 材料科学 (超润滑材料、磨损机制)
-    - "physics.comp-ph"    # 计算物理 (EHL数值求解器仿真)
-    - "cs.CE"              # 计算工程与科学 (有限元分析、数值工程计算)
-    - "cs.LG"              # 机器学习 (涵盖贝叶斯优化及其工程应用)
-    - "stat.ML"            # 统计机器学习 (涵盖贝叶斯优化算法基础)
+    - "physics.class-ph"   # 经典物理（流体力学、经典力学）
+    - "physics.app-ph"     # 应用物理（材料与机械部件）
+    - "cond-mat.mtrl-sci"  # 材料科学（超润滑材料、磨损机制）
+    - "physics.comp-ph"    # 计算物理（EHL数值仿真）
+    - "cs.CE"              # 计算工程（有限元、数值工程）
+    - "cs.LG"              # 机器学习（贝叶斯优化）
+    - "stat.ML"            # 统计机器学习（贝叶斯优化算法）
+    - "eess.SP"            # 信号处理（齿轮故障诊断）
+    - "physics.flu-dyn"    # 流体动力学（润滑流体力学）
+    - "cond-mat.soft"      # 软凝聚态（润滑薄膜、界面）
 
 # LLM配置
 llm:
