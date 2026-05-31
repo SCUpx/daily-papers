@@ -30,11 +30,5 @@
 
 <!-- PAPERS_START -->
 
-## 2026-05-31
-
-## Bayesian optimization
-
-| 标题 | 评分 | Gemini 摘要 | 评分理由 | 原始摘要 |
-|------|------|-------------|----------|----------|
-| **[Adversarial Query Synthesis via Bayesian Optimization](https://arxiv.org/abs/2603.01570v1)** | ⭐ 74/100 | 利用贝叶斯优化自动生成数据库难点查询 | 方法创新且实用，但实验规模与深度有待进一步验证 | <details><summary>展开</summary>Benchmark workloads are extremely important to the database management research community, especially as more machine learning components are integrated into database systems. Here, we propose a Bayesian optimization technique to automatically search for difficult benchmark queries, significantly reducing the amount of manual effort usually required. In preliminary experiments, we show that our approach can generate queries with more than double the optimization headroom compared to existing benchmarks.</details> |
+## 2026-06-01
 
